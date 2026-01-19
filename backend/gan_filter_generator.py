@@ -441,22 +441,27 @@ class GANFilterGenerator:
             
             # Create condition vector for GAN
             has_cvd = 1.0 if max(protanopia_score, deuteranopia_score, tritanopia_score) > 0.1 else 0.0
-            condition = torch.tensor([protanopia_score, deuteranopia_score, tritanopia_score, has_cvd]).to(self.device)
+            condition = torch.tensor([
+                protanopia_score,
+                deuteranopia_score,
+                tritanopia_score,
+                has_cvd
+            ], dtype=torch.float32, device=self.device).unsqueeze(0)
             
             # Use GAN to generate optimal filter parameters
             with torch.no_grad():
                 # Create a dummy image tensor for parameter generation
-                dummy_image = torch.randn(1, 3, 256, 256).to(self.device)
+                dummy_image = torch.randn(1, 3, 256, 256, device=self.device)
                 
                 # Pass through generator to get filter characteristics
-                output = self.generator(dummy_image, condition)
+                _, overlay_filter, _ = self.generator(dummy_image, condition)
                 
-                # Analyze output to determine optimal CSS filter parameters
-                output_np = output.cpu().numpy().squeeze()
+                # Analyze overlay filter to determine optimal CSS filter parameters
+                overlay_np = overlay_filter.cpu().numpy().squeeze()
                 
                 # Calculate filter parameters based on GAN output characteristics
-                mean_values = np.mean(output_np, axis=(1, 2))  # RGB channel means
-                std_values = np.std(output_np, axis=(1, 2))    # RGB channel stds
+                mean_values = np.mean(overlay_np, axis=(1, 2))  # RGB channel means
+                std_values = np.std(overlay_np, axis=(1, 2))    # RGB channel stds
                 
                 # Map GAN output to CSS filter parameters
                 r_shift, g_shift, b_shift = mean_values
